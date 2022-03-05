@@ -67,7 +67,7 @@ const int ambientHumidityAnalogPin = 3;
 const int phPowerPin = D4;
 const int ecPowerPin = D3;
 
-const int valveSwitchPin = D5;
+const int valveSwitchPin = A4;
 boolean valveStatus = false;
 
 const int pumpPins[3] = {D7, D8, D9};
@@ -117,11 +117,11 @@ unsigned long measurementTimeMs = transmissionTimeMs / nMeasurementsBetweenTrans
 // Seteaza timpul dintre verificarile conexiunii in milisecunde (30 minute)
 const unsigned long reconnectTimeMs = 1800000UL;
 
-// Seteaza timpul pentru care trebuie lasata pornita pompa de nutrienti
+// Seteaza timpul pentru care trebuie lasata pornita pompa de nutrienti (6s)
 const unsigned long nutrientPumpOnTimeMs = 6000UL;
 
-// Seteaza timpul pentru care trebuie lasata pornita electrovalva
-const unsigned long valveOnTimeMs = 60000UL;
+// Seteaza timpul pentru care trebuie lasata pornita electrovalva (6s)
+const unsigned long valveOnTimeMs = 6000UL;
 
 unsigned long lastMeasurementTime = 0UL;
 unsigned long lastTransmissionTime = 0UL;
@@ -171,9 +171,13 @@ float milivotsToPpm(float miliVolts, float temp) {
 }
  
 void controlGreenhouseEvents() {
+  Serial.println("Checking for water level...");
   if (liquidLevel == LOW) {
+    Serial.println("Liquid level low. Activating pump.");
     pumpWater = true;
     lastValveSwitchTime = millis();
+  } else {
+    Serial.println("Liquid level high. Not activating pump.");
   }
 }
 
@@ -316,6 +320,7 @@ void setup() {
 }
 
 void loop() {
+  Blynk.run();
   // Measurement Event
   if (millis() - lastMeasurementTime > measurementTimeMs) {
     Serial.println("Measuring");
@@ -344,8 +349,9 @@ void loop() {
     lastTransmissionTime = millis();
     lastMeasurementTime = millis();
     measurementCounter = 0;
-    if (VERBOSE)
+    if (VERBOSE) {
       printSensorData();
+    }
     sendSensorData();
     controlGreenhouseEvents();
   }
