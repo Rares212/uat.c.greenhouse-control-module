@@ -59,13 +59,13 @@ const int adsSckPin = 22;
 const int lightPin = A0;
 const int tempPin = D2;
 
-const int ecPin = 0;
-const int phPin = 1;
-const int ambientTempAnalogPin = 2;
-const int ambientHumidityAnalogPin = 3;
+const int ecPin = 2;
+const int phPin = 3;
+const int ambientTempAnalogPin = 0;
+const int ambientHumidityAnalogPin = 1;
 
-const int phPowerPin = D4;
-const int ecPowerPin = D3;
+const int phPowerPin = D3;
+const int ecPowerPin = D4;
 
 const int valveSwitchPin = A4;
 boolean valveStatus = false;
@@ -109,7 +109,7 @@ int reconnectionAttempts = 0;
 // Seteaza timpul dintre transmisiile de date (32s)
 const unsigned long transmissionTimeMs = 32000UL;
 // Cate masurari se fac intre transmisii
-const int nMeasurementsBetweenTransmissions = 22;
+const int nMeasurementsBetweenTransmissions = 21;
 int measurementCounter = 0;
 // Timpul dintre masuratori
 unsigned long measurementTimeMs = transmissionTimeMs / nMeasurementsBetweenTransmissions;
