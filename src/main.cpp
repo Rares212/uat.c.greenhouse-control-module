@@ -67,7 +67,7 @@ const int ambientHumidityAnalogPin = 3;
 const int phPowerPin = D4;
 const int ecPowerPin = D3;
 
-const int valveSwitchPin = D5;
+const int valveSwitchPin = A4;
 boolean valveStatus = false;
 
 const int pumpPins[3] = {D7, D8, D9};
@@ -102,7 +102,7 @@ Max44009 lightSensor(0x4A);
 OneWire oneWire(tempPin);
 DallasTemperature tempSensor(&oneWire);
 
-DFRobot_ESP_EC ec;
+//DFRobot_ESP_EC ec;
 
 int reconnectionAttempts = 0;
 
@@ -117,11 +117,11 @@ unsigned long measurementTimeMs = transmissionTimeMs / nMeasurementsBetweenTrans
 // Seteaza timpul dintre verificarile conexiunii in milisecunde (30 minute)
 const unsigned long reconnectTimeMs = 1800000UL;
 
-// Seteaza timpul pentru care trebuie lasata pornita pompa de nutrienti
+// Seteaza timpul pentru care trebuie lasata pornita pompa de nutrienti (6s)
 const unsigned long nutrientPumpOnTimeMs = 6000UL;
 
-// Seteaza timpul pentru care trebuie lasata pornita electrovalva
-const unsigned long valveOnTimeMs = 60000UL;
+// Seteaza timpul pentru care trebuie lasata pornita electrovalva (6s)
+const unsigned long valveOnTimeMs = 6000UL;
 
 unsigned long lastMeasurementTime = 0UL;
 unsigned long lastTransmissionTime = 0UL;
@@ -156,18 +156,28 @@ float milivoltsToPh(float miliVolts, float temp) {
   return ph;
 }
 
-float getCalibratedPh(float ph) {
-  return ph;
-}
+float milivotsToPpm(float miliVolts, float temp) {
+  
+  float ec = miliVolts * 0.03071;
 
-float getCalibratedPpm(float ppm) {
-  return ppm * 500.0f;
-}
+  // Temp correction
+  ec += 0.2122f * temp - 5.7345f;
 
+  if (ec < 0) {
+    ec = 0;
+  }
+
+  return ec * 500.0f;
+}
+ 
 void controlGreenhouseEvents() {
+  Serial.println("Checking for water level...");
   if (liquidLevel == LOW) {
+    Serial.println("Liquid level low. Activating pump.");
     pumpWater = true;
     lastValveSwitchTime = millis();
+  } else {
+    Serial.println("Liquid level high. Not activating pump.");
   }
 }
 
@@ -197,7 +207,7 @@ void readSensorData(bool readPh, bool readEc) {
     digitalWrite(phPowerPin, HIGH);
     delay(1);
     ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(ecPin)) * 1000.0f;
-    ecValue.add(getCalibratedPpm(ec.readEC(ecVoltage, waterTemp.getLast())));
+    ecValue.add(milivotsToPpm(ecVoltage, waterTemp.getLast()));
     phVoltage = ads.computeVolts(ads.readADC_SingleEnded(phPin)) * 1000.0f;
     phValue.add(milivoltsToPh(phVoltage, waterTemp.getLast()));
   } else if (readEc) {
@@ -205,7 +215,7 @@ void readSensorData(bool readPh, bool readEc) {
     digitalWrite(phPowerPin, LOW);
     delay(1);
     ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(ecPin)) * 1000.0f;
-    ecValue.add(getCalibratedPpm(ec.readEC(ecVoltage, waterTemp.getLast())));
+    ecValue.add(milivotsToPpm(ecVoltage, waterTemp.getLast()));
   } else if (readPh) {
     digitalWrite(ecPowerPin, LOW);
     digitalWrite(phPowerPin, HIGH);
@@ -279,10 +289,10 @@ void setup() {
   Serial.println("Connecting to WiFi...");
   Blynk.begin(authToken, ssid, pass);
 
-  ec.begin();
+  //ec.begin();
 
-  ecValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
-  phValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
+  ecValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions/3);
+  phValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions/3);
   waterTemp.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
   ambientTemp.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
   ambientHumidity.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
@@ -310,6 +320,7 @@ void setup() {
 }
 
 void loop() {
+  Blynk.run();
   // Measurement Event
   if (millis() - lastMeasurementTime > measurementTimeMs) {
     Serial.println("Measuring");
@@ -317,10 +328,14 @@ void loop() {
     // For the first half of the measurements, read the ph sensor
     // For the second half of the measurements, read the ec sensor
     if (measurementCounter < nMeasurementsBetweenTransmissions / 2) {
-      Serial.println("Reading ec sensor");
+      //Serial.println("Reading ec sensor");
+      Serial.print("Ec: ");
+      Serial.println(ecValue.getLast());
       readSensorData(false, true);
     } else {
-      Serial.println("Reading ph sensor");
+      //Serial.println("Reading ph sensor");
+      Serial.print("Ph: ");
+      Serial.println(phValue.getLast());
       readSensorData(true, false);
     }
     measurementCounter++;
@@ -334,8 +349,9 @@ void loop() {
     lastTransmissionTime = millis();
     lastMeasurementTime = millis();
     measurementCounter = 0;
-    if (VERBOSE)
+    if (VERBOSE) {
       printSensorData();
+    }
     sendSensorData();
     controlGreenhouseEvents();
   }
