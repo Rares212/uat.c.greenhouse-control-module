@@ -27,12 +27,12 @@
 
 // Modifica aici cu WiFi-ul + auth tokenul tau de la blynk
 char authToken[] = "YS-o_ds7KW1FcadGiFwzrd7ALxkpT3i_";
-char ssid[] = "DIGI-p2H2";
-char pass[] = "46DseWDj";
+char ssid[] = "AirTies_Air4930_4LC4";
+char pass[] = "nnmmnd8473";
 
 HTTPClient http;
 
-String measurementApiUrl = "http://192.168.1.1/api/measurements/add-measurement";
+String measurementApiUrl = "http://192.168.1.5:8080/api/measurements/add-measurement";
 String contentType = "application/json";
 const int boardId = 10;
 const int phSensorId = 0;
@@ -59,8 +59,8 @@ const int adsSckPin = 22;
 const int lightPin = A0;
 const int tempPin = D2;
 
-const int ecPin = 1;
-const int phPin = 0;
+const int ecPin = 0;
+const int phPin = 1;
 const int ambientTempAnalogPin = 2;
 const int ambientHumidityAnalogPin = 3;
 
@@ -106,10 +106,10 @@ DFRobot_ESP_EC ec;
 
 int reconnectionAttempts = 0;
 
-// Seteaza timpul dintre transmisiile de date (16s)
-const unsigned long transmissionTimeMs = 16000UL;
+// Seteaza timpul dintre transmisiile de date (32s)
+const unsigned long transmissionTimeMs = 32000UL;
 // Cate masurari se fac intre transmisii
-const int nMeasurementsBetweenTransmissions = 5;
+const int nMeasurementsBetweenTransmissions = 22;
 int measurementCounter = 0;
 // Timpul dintre masuratori
 unsigned long measurementTimeMs = transmissionTimeMs / nMeasurementsBetweenTransmissions;
@@ -160,12 +160,8 @@ float getCalibratedPh(float ph) {
   return ph;
 }
 
-float milivoltsToPpm(float miliVolts, float temp) {
-  return ec.readEC(miliVolts, temp);
-}
-
 float getCalibratedPpm(float ppm) {
-  return ppm;
+  return ppm * 500.0f;
 }
 
 void controlGreenhouseEvents() {
@@ -201,7 +197,7 @@ void readSensorData(bool readPh, bool readEc) {
     digitalWrite(phPowerPin, HIGH);
     delay(1);
     ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(ecPin)) * 1000.0f;
-    ecValue.add(msPerCmToPPM(ec.readEC(ecVoltage * ecCalFactor, waterTemp.getLast())));
+    ecValue.add(getCalibratedPpm(ec.readEC(ecVoltage, waterTemp.getLast())));
     phVoltage = ads.computeVolts(ads.readADC_SingleEnded(phPin)) * 1000.0f;
     phValue.add(milivoltsToPh(phVoltage, waterTemp.getLast()));
   } else if (readEc) {
@@ -209,7 +205,7 @@ void readSensorData(bool readPh, bool readEc) {
     digitalWrite(phPowerPin, LOW);
     delay(1);
     ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(ecPin)) * 1000.0f;
-    ecValue.add(msPerCmToPPM(ec.readEC(ecVoltage, waterTemp.getLast())));
+    ecValue.add(getCalibratedPpm(ec.readEC(ecVoltage, waterTemp.getLast())));
   } else if (readPh) {
     digitalWrite(ecPowerPin, LOW);
     digitalWrite(phPowerPin, HIGH);
@@ -321,10 +317,10 @@ void loop() {
     // For the first half of the measurements, read the ph sensor
     // For the second half of the measurements, read the ec sensor
     if (measurementCounter < nMeasurementsBetweenTransmissions / 2) {
-      //Serial.println("Reading ph sensor");
+      Serial.println("Reading ec sensor");
       readSensorData(false, true);
     } else {
-      //Serial.println("Reading ec sensor");
+      Serial.println("Reading ph sensor");
       readSensorData(true, false);
     }
     measurementCounter++;
