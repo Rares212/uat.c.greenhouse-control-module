@@ -17,6 +17,7 @@
 #include "Max44009.h"
 #include <Smoothed.h>
 #include <HTTPClient.h>
+#include "DFRobot_ESP_EC.h"
 
 #define CAL_MODE true
 #define VERBOSE true
@@ -101,8 +102,7 @@ Max44009 lightSensor(0x4A);
 OneWire oneWire(tempPin);
 DallasTemperature tempSensor(&oneWire);
 
-DFRobot_EC10 ec;
-const float ecCalFactor = 1.256f;
+DFRobot_ESP_EC ec;
 
 int reconnectionAttempts = 0;
 
@@ -138,6 +138,7 @@ int sendMeasurement(int sensorId, float value, String measurementUnit) {
     http.end();
     return resp;
   }
+  return -1;
 }
 
 float readAmbientTempAnalog() {
@@ -155,9 +156,16 @@ float milivoltsToPh(float miliVolts, float temp) {
   return ph;
 }
 
-float msPerCmToPPM(float msPerCm) {
-  // 500 scale
-  return msPerCm * 500.0f;
+float getCalibratedPh(float ph) {
+  return ph;
+}
+
+float milivoltsToPpm(float miliVolts, float temp) {
+  return ec.readEC(miliVolts, temp);
+}
+
+float getCalibratedPpm(float ppm) {
+  return ppm;
 }
 
 void controlGreenhouseEvents() {
@@ -201,7 +209,7 @@ void readSensorData(bool readPh, bool readEc) {
     digitalWrite(phPowerPin, LOW);
     delay(1);
     ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(ecPin)) * 1000.0f;
-    ecValue.add(msPerCmToPPM(ec.readEC(ecVoltage * ecCalFactor, waterTemp.getLast())));
+    ecValue.add(msPerCmToPPM(ec.readEC(ecVoltage, waterTemp.getLast())));
   } else if (readPh) {
     digitalWrite(ecPowerPin, LOW);
     digitalWrite(phPowerPin, HIGH);
@@ -400,6 +408,4 @@ void loop() {
       pumpNutrients = true;
     }
   }
-
-  ec.calibration(ecVoltage * ecCalFactor, waterTemp.getLast());
 }
