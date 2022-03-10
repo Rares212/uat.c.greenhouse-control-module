@@ -21,14 +21,14 @@
 
 #define CAL_MODE true
 #define VERBOSE true
-#define SHT_ANALOG true
+#define SHT_ANALOG false
 
 #define MAX_CONNECTION_ATTEMPTS 5
 
 // Modifica aici cu WiFi-ul + auth tokenul tau de la blynk
 char authToken[] = "YS-o_ds7KW1FcadGiFwzrd7ALxkpT3i_";
-char ssid[] = "AirTies_Air4930_4LC4";
-char pass[] = "nnmmnd8473";
+char ssid[] = "DIGI-p2H2";
+char pass[] = "46DseWDj";
 
 HTTPClient http;
 
@@ -49,23 +49,7 @@ BlynkTimer manageConnectionTimer;
 
 // Seteaza pinii
 const int liquidLevelPin = 17;
-
-const int shtDataPin = 16;
-const int shtSckPin = 4;
-
-const int adsDataPin = 21;
-const int adsSckPin = 22;
-
-const int lightPin = A0;
 const int tempPin = D2;
-
-const int ecPin = 0;
-const int phPin = 1;
-const int ambientTempAnalogPin = 2;
-const int ambientHumidityAnalogPin = 3;
-
-const int phPowerPin = D4;
-const int ecPowerPin = D3;
 
 const int valveSwitchPin = A4;
 boolean valveStatus = false;
@@ -79,25 +63,9 @@ boolean pumpNutrients = false;
 boolean pumpWater = false;
 
 // Variabile pentru valorile de la senzori
-Smoothed<float> ambientHumidity;
-Smoothed<float> ambientTemp;
 Smoothed<float> waterTemp;
 
-Smoothed<float> lightLux;
-
-float phVoltage;
-Smoothed<float> phValue;
-
-float ecVoltage;
-Smoothed<float> ecValue;
-
 int liquidLevel;
-
-SHT1x sht(shtDataPin, shtSckPin);
-
-Adafruit_ADS1115 ads;
-
-Max44009 lightSensor(0x4A);
 
 OneWire oneWire(tempPin);
 DallasTemperature tempSensor(&oneWire);
@@ -109,7 +77,7 @@ int reconnectionAttempts = 0;
 // Seteaza timpul dintre transmisiile de date (32s)
 const unsigned long transmissionTimeMs = 32000UL;
 // Cate masurari se fac intre transmisii
-const int nMeasurementsBetweenTransmissions = 22;
+const int nMeasurementsBetweenTransmissions = 11;
 int measurementCounter = 0;
 // Timpul dintre masuratori
 unsigned long measurementTimeMs = transmissionTimeMs / nMeasurementsBetweenTransmissions;
@@ -140,35 +108,6 @@ int sendMeasurement(int sensorId, float value, String measurementUnit) {
   }
   return -1;
 }
-
-float readAmbientTempAnalog() {
-  return -66.875f + 72.917f * ads.computeVolts(ads.readADC_SingleEnded(ambientTempAnalogPin));
-}
-
-float readAmbientHumidityAnalog() {
-  return -12.5f + 41.667f * ads.computeVolts(ads.readADC_SingleEnded(ambientHumidityAnalogPin));
-}
-
-float milivoltsToPh(float miliVolts, float temp) {
-  float ph = -miliVolts * 0.006098f + 16.23f;
-  // Temperature correction
-  ph = ph + ((temp - 25.0f) * 0.0188f);
-  return ph;
-}
-
-float milivotsToPpm(float miliVolts, float temp) {
-  
-  float ec = miliVolts * 0.03071;
-
-  // Temp correction
-  ec += 0.2122f * temp - 5.7345f;
-
-  if (ec < 0) {
-    ec = 0;
-  }
-
-  return ec * 500.0f;
-}
  
 void controlGreenhouseEvents() {
   Serial.println("Checking for water level...");
@@ -181,88 +120,29 @@ void controlGreenhouseEvents() {
   }
 }
 
-void readSensorData(bool readPh, bool readEc) {
-  lightLux.add(lightSensor.getLux());
-
+void readSensorData() {
+  // Serial.println("Reading liquid level sensor...");
   liquidLevel = digitalRead(liquidLevelPin);
 
+  // Serial.println("Reading water temp sensor...");
   tempSensor.requestTemperatures();
   waterTemp.add(tempSensor.getTempCByIndex(0));
   yield();
-
-
-  if (!SHT_ANALOG) {
-    ambientTemp.add(sht.readTemperatureC());
-    ambientHumidity.add(sht.readHumidity());
-  } else {
-    ambientTemp.add(readAmbientTempAnalog());
-    ambientHumidity.add(readAmbientHumidityAnalog());
-  }
-
-  yield();
-
-  // Face conversie la mV
-  if (readEc && readPh) {
-    digitalWrite(ecPowerPin, HIGH);
-    digitalWrite(phPowerPin, HIGH);
-    delay(1);
-    ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(ecPin)) * 1000.0f;
-    ecValue.add(milivotsToPpm(ecVoltage, waterTemp.getLast()));
-    phVoltage = ads.computeVolts(ads.readADC_SingleEnded(phPin)) * 1000.0f;
-    phValue.add(milivoltsToPh(phVoltage, waterTemp.getLast()));
-  } else if (readEc) {
-    digitalWrite(ecPowerPin, HIGH);
-    digitalWrite(phPowerPin, LOW);
-    delay(1);
-    ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(ecPin)) * 1000.0f;
-    ecValue.add(milivotsToPpm(ecVoltage, waterTemp.getLast()));
-  } else if (readPh) {
-    digitalWrite(ecPowerPin, LOW);
-    digitalWrite(phPowerPin, HIGH);
-    delay(1);
-    phVoltage = ads.computeVolts(ads.readADC_SingleEnded(phPin)) * 1000.0f;
-    phValue.add(milivoltsToPh(phVoltage, waterTemp.getLast()));
-  }
 }
 
 void sendSensorData() {
-  Blynk.virtualWrite(V0, ambientTemp.get());
-  Blynk.virtualWrite(V1, ambientHumidity.get());
   Blynk.virtualWrite(V2, (bool)liquidLevel);
-  Blynk.virtualWrite(V3, lightLux.get());
-  Blynk.virtualWrite(V4, phValue.get());
-  Blynk.virtualWrite(V5, ecValue.get());
   Blynk.virtualWrite(V6, waterTemp.get());
 
-  sendMeasurement(boardId + phSensorId, phValue.get(), "ph");
-  sendMeasurement(boardId + ecSensorId, ecValue.get(), "ppm500");
   sendMeasurement(boardId + liquidLevelId, liquidLevel ? 1.0f : 0.0f, "bool");
-  sendMeasurement(boardId + ambientTempId, ambientTemp.get(), "*C");
-  sendMeasurement(boardId + humidityId, ambientHumidity.get(), "%");
   sendMeasurement(boardId + waterTempId, waterTemp.get(), "*C");
-  sendMeasurement(boardId + ambientLightId, lightLux.get(), "lux");
 }
 
 void printSensorData() {
-  Serial.print("\nLight(lux): ");
-  Serial.println(lightLux.getLast());
   Serial.print("Water Temp(C): ");
   Serial.println(waterTemp.getLast());
-  Serial.print("Ambient Temp(C): ");
-  Serial.println(ambientTemp.getLast());
-  Serial.print("Humidity(%): ");
-  Serial.println(ambientHumidity.getLast());
   Serial.print("Liquid level(bool): ");
   Serial.println(liquidLevel);
-  Serial.print("Ec value(ppm500): ");
-  Serial.println(ecValue.getLast());
-  Serial.print("Ph value: ");
-  Serial.println(phValue.getLast());
-  Serial.print("Ec voltage(mV): ");
-  Serial.println(ecVoltage);
-  Serial.print("Ph voltage(mV): ");
-  Serial.println(phVoltage);
-  Serial.print('\n');
 }
 
 void manageConnectionEvent() {
@@ -282,41 +162,28 @@ void manageConnectionEvent() {
 }
 
 void setup() {
-  Wire.begin();
   Serial.begin(9600);
-  EEPROM.begin(32);
 
   Serial.println("Connecting to WiFi...");
   Blynk.begin(authToken, ssid, pass);
 
   //ec.begin();
 
-  ecValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions/3);
-  phValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions/3);
   waterTemp.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
-  ambientTemp.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
-  ambientHumidity.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
-  lightLux.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
 
+  Serial.println("Init temp sensor");
   tempSensor.begin();
 
-  lightSensor.setAutomaticMode();
-
-  ads.setGain(GAIN_ONE);
-  ads.begin(0x48);
-
   pinMode(liquidLevelPin, INPUT);
-  pinMode(ecPowerPin, OUTPUT);
-  pinMode(phPowerPin, OUTPUT);
   pinMode(valveSwitchPin, OUTPUT);
   pinMode(pumpPins[0], OUTPUT);
   pinMode(pumpPins[1], OUTPUT);
   pinMode(pumpPins[2], OUTPUT);
   
-  digitalWrite(ecPowerPin, HIGH);
-  digitalWrite(phPowerPin, HIGH);
+  digitalWrite(valveSwitchPin, LOW);
 
-  readSensorData(false, false);
+  Serial.println("First reading");
+  readSensorData();
 }
 
 void loop() {
@@ -327,18 +194,8 @@ void loop() {
     lastMeasurementTime = millis();
     // For the first half of the measurements, read the ph sensor
     // For the second half of the measurements, read the ec sensor
-    if (measurementCounter < nMeasurementsBetweenTransmissions / 2) {
-      //Serial.println("Reading ec sensor");
-      Serial.print("Ec: ");
-      Serial.println(ecValue.getLast());
-      readSensorData(false, true);
-    } else {
-      //Serial.println("Reading ph sensor");
-      Serial.print("Ph: ");
-      Serial.println(phValue.getLast());
-      readSensorData(true, false);
-    }
-    measurementCounter++;
+    readSensorData();
+    printSensorData();
   }
 
   // Data transmission event
@@ -352,7 +209,7 @@ void loop() {
     if (VERBOSE) {
       printSensorData();
     }
-    sendSensorData();
+    //sendSensorData();
     controlGreenhouseEvents();
   }
 
