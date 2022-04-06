@@ -24,13 +24,10 @@
 #include <WebServer.h>
 #include <WiFiManager.h> 
 
-#define CAL_MODE true
+#define CAL_MODE false
 #define VERBOSE true
 #define SHT_ANALOG true
-
-#define MAX_CONNECTION_ATTEMPTS 5
-
-#define RACK_NUMBER_ADDRESS 100
+#define USE_ULTRASONIC_CONTROL false
 
 const String deviceName = "UAT-Rack-Module";
 unsigned int rackNumber = 1;
@@ -39,7 +36,8 @@ const String stationPwd = "surche123";
 // HTTP constants
 HTTPClient http;
 
-String serverHostname = "uat-rpi-central";
+//String serverHostname = "uat-rpi-central";
+String serverHostname = "DESKTOP-A3VFPEF";
 IPAddress serverAddress;
 const int serverPort = 8080;
 const String measurementPostUri = "/api/measurements/add-measurement";
@@ -141,7 +139,12 @@ int measurementCounter = 0;
 unsigned long measurementTimeMs = transmissionTimeMs / nMeasurementsBetweenTransmissions;
 
 // How many seconds the nutrient pump should be on (6s)
-const unsigned long nutrientPumpOnTimeMs = 6000UL;
+const unsigned long nutrientPumpOnTimeMs = 1000UL * 6UL;
+
+// How many seconds the pump should be on to fill the tank (3 minutes)
+// NOT USED ON ULTRASONIC CONTROL
+//const unsigned long pumpOnTimeMs = 1000UL * 60UL * 3UL;
+const unsigned long pumpOnTimeMs = 1000UL * 20UL;
 
 unsigned long lastMeasurementTime = 0UL;
 unsigned long lastTransmissionTime = 0UL;
@@ -251,7 +254,7 @@ float milivotsToPpm(float miliVolts, float temp) {
 }
 
 void readWaterLevelCm() {
-  unsigned int echo = liquidLevelEcho.ping_median(16, maxEchoDistance);
+  unsigned int echo = liquidLevelEcho.ping_median(32, maxEchoDistance);
   if (echo != 0) {
     float echoDistance = liquidLevelEcho.convert_cm(echo);
     echoDistance = liquidLevelDistanceFromTop + reservoirHeight - echoDistance;
@@ -263,12 +266,26 @@ void controlGreenhouseEvents() {
   if (VERBOSE) {
     Serial.println("\nChecking for water level...");
   }
+
+  #if USE_ULTRASONIC_CONTROL
+  // Use the ultrasonic sensor to check for low liquid level and start the pumping sequence
   if (liquidLevel.get() <= minWaterLevel) {
     if (VERBOSE) {
       Serial.println("Low liquid level: starting pumping sequence");
     }
     pumpWater = true;
   }
+
+  #else
+  // Use the boolean liquid level sensor to start the pumping sequence
+  if (!waterSensorStatus) {
+    if (VERBOSE) {
+      Serial.println("Low liquid level: starting pumping sequence");
+    }
+    pumpWater = true;
+  }
+  #endif
+  
 }
 
 // Sends a valve status signal to the server and turns the valve on.
@@ -322,14 +339,15 @@ void readSensorData(bool readPh, bool readEc) {
   waterTemp.add(tempSensor.getTempCByIndex(0));
   yield();
 
+  
 
-  if (!SHT_ANALOG) {
-    ambientTemp.add(sht.readTemperatureC());
-    ambientHumidity.add(sht.readHumidity());
-  } else {
+  #if SHT_ANALOG
     ambientTemp.add(readAmbientTempAnalog());
     ambientHumidity.add(readAmbientHumidityAnalog());
-  }
+  #else
+    ambientTemp.add(sht.readTemperatureC());
+    ambientHumidity.add(sht.readHumidity());
+  #endif
 
   yield();
 
@@ -384,30 +402,15 @@ void printSensorData() {
   Serial.println(liquidLevel.get());
 }
 
-void setup() {
-  Wire.begin();
-  Serial.begin(9600);
-  EEPROM.begin(256);
-
-  rackNumber = EEPROM.readUInt(RACK_NUMBER_ADDRESS);
-
+void initNetwork() {
   String stationName = deviceName + "-" + rackNumber;
 
-  WiFiManagerParameter rackNumberParam("rack_number", "Rack number(1-255)", String(rackNumber).c_str(), 3);
-  wifiManager.addParameter(&rackNumberParam);
-
-  //wifiManager.resetSettings();
   bool connectionSuccess = wifiManager.autoConnect(stationName.c_str(), stationPwd.c_str());
 
   if (connectionSuccess) {
     if (VERBOSE) {
       Serial.print("Connected to ");
-      Serial.println(wifiManager.getSSID());  
-    }
-    rackNumber = (unsigned int) atoi(rackNumberParam.getValue());
-    EEPROM.writeUInt(RACK_NUMBER_ADDRESS, rackNumber);
-    boardId = rackNumber * 10;
-    if (VERBOSE) {
+      Serial.println(wifiManager.getSSID());
       Serial.print("Rack number: ");
       Serial.println(rackNumber);
       Serial.println("Querying local server by hostname...");
@@ -436,6 +439,18 @@ void setup() {
   }
 
   WiFi.setAutoReconnect(true);
+}
+
+void setup() {
+  Wire.begin();
+  Serial.begin(9600);
+  EEPROM.begin(256);
+
+  if (!CAL_MODE) {
+    initNetwork();
+  } else {
+    Serial.println("Entering calibration mode. Will not connect to WiFi or pump water.");
+  }
 
   ecValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions / 3);
   phValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions / 3);
@@ -468,21 +483,10 @@ void setup() {
 
 void loop() {
   
-  if (WiFi.status() != WL_CONNECTED) {
-    if (pumpWater || pumpNutrients) {
-      WiFi.reconnect();
-    } else {
-      if (VERBOSE) {
-        Serial.println("WiFi connection lost. Restarting...");
-      }
-      ESP.restart();
-    }
-  }
-
   // Measurement Event
   if (millis() - lastMeasurementTime > measurementTimeMs && !pumpWater && !pumpNutrients) {
     if (VERBOSE) {
-      Serial.println("Measuring");
+      Serial.println("\nMeasuring");
     }
     lastMeasurementTime = millis();
     // For the first half of the measurements, read the ph sensor
@@ -492,11 +496,14 @@ void loop() {
     } else {
       readSensorData(true, false);
     }
+    if (CAL_MODE && VERBOSE) {
+      printSensorData();
+    }
     measurementCounter++;
   }
 
   // Data transmission event
-  if (millis() - lastTransmissionTime > transmissionTimeMs && !pumpWater && !pumpNutrients) {
+  if (millis() - lastTransmissionTime > transmissionTimeMs && !pumpWater && !pumpNutrients && !CAL_MODE) {
     if (VERBOSE) {
       Serial.println("\nTransmitting");
     }
@@ -511,7 +518,7 @@ void loop() {
   }
 
   // Nutrient pump event
-  if (pumpNutrients) {
+  if (pumpNutrients && !CAL_MODE) {
     if (!pumpStatus[0] && !pumpStatus[1] && !pumpStatus[2]) {
         digitalWrite(pumpPins[0], HIGH);
         pumpStatus[0] = true;
@@ -570,6 +577,9 @@ void loop() {
 
   // Water tank fill event
   if (pumpWater) {
+
+    #if USE_ULTRASONIC_CONTROL
+
     // If the valve isn't on, start the sequence
     if (!valveStatus) {
       // Attempt to turn the valve on and send a control signal to the server
@@ -593,9 +603,50 @@ void loop() {
         if (turnValveOff()) {
           pumpWater = false;
           pumpNutrients = true;
+        } else {
+          pumpWater = false;
+          pumpNutrients = false;
         }
       }
     }
+
+    #else
+    // If the valve isn't on, start the sequence
+    if (!valveStatus) {
+      // Attempt to turn the valve on and send a control signal to the server
+      // Stop the pumping sequence if there was any failure sending the control signal to the server.
+      if (!turnValveOn()) {
+        pumpWater = false;
+        if (VERBOSE) {
+          Serial.println("Error sending the control signal. Pumping sequence stopped.");
+        }
+      } else {
+        lastPumpSwitchTime = millis();
+      }
+
+    }
+    // If the pump is already turned on, turn if off after the timer is done
+    else if (millis() - lastPumpSwitchTime > pumpOnTimeMs) {
+      if (turnValveOff()) {
+        pumpWater = false;
+        pumpNutrients = true;
+      } else {
+        pumpWater = false;
+        pumpNutrients = false;
+      }
+    }
+    #endif
   }
 
+  // Attempt WiFi reconnection
+  if (WiFi.status() != WL_CONNECTED && !CAL_MODE) {
+    if (pumpWater || pumpNutrients) {
+      WiFi.reconnect();
+    } else {
+      if (VERBOSE) {
+        Serial.println("WiFi connection lost. Restarting...");
+      }
+      ESP.restart();
+    }
+  }
 }
