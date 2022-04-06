@@ -71,13 +71,13 @@ const int adsSckPin = 22;
 const int lightPin = A0;
 const int tempPin = D2;
 
-const int ecPin = 2;
-const int phPin = 3;
-const int ambientTempAnalogPin = 0;
-const int ambientHumidityAnalogPin = 1;
+const int ecPin = 0;
+const int phPin = 1;
+const int ambientTempAnalogPin = 2;
+const int ambientHumidityAnalogPin = 3;
 
-const int phPowerPin = D3;
-const int ecPowerPin = D4;
+const int phPowerPin = D4;
+const int ecPowerPin = D3;
 
 
 // Valve + pumps
