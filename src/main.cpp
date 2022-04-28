@@ -42,6 +42,8 @@ IPAddress serverAddress;
 const int serverPort = 8080;
 const String measurementPostUri = "/api/measurements/add-measurement";
 const String measurementsPostUri = "/api/measurements/add-measurements";
+const String initBoardUri = "/api/boards/init-rack-module";
+const String pingBoardUri = "api/boards/ping";
 String contentType = "application/json";
 
 // API variables
@@ -156,7 +158,7 @@ String buildJsonForSensor(int sensorId, float value, String measurementUnit) {
   return "{\"value\":" + String(value) + ",\"measurementUnit\":\"" + measurementUnit +"\",\"sensor\":{\"id\":" + String(sensorId) + "}}";
 }
 
-String buildJsonRequest() {
+String buildMeasurementsRequestBody() {
   String request = "[" + 
     buildJsonForSensor(boardId + phSensorId, phValue.get(), "ph") + "," +
     buildJsonForSensor(boardId + ecSensorId, ecValue.get(), "ppm500") + "," +
@@ -168,6 +170,10 @@ String buildJsonRequest() {
     buildJsonForSensor(boardId + liquidLevelId, liquidLevel.get(), "cm") + "," +
     buildJsonForSensor(boardId + waterValveStatusId, valveStatus ? 1.0f : 0.0f, "bool") + "]";
   return request;
+}
+
+String buildBoardInitRequestBody() {
+  
 }
 
 // Send a HTTP POST request to the Raspberry server, adding 1 measurement.
@@ -202,7 +208,33 @@ bool sendMeasurements() {
   if (http.begin(serverAddress.toString(), serverPort, measurementsPostUri)) {
     http.addHeader("Content-Type", "application/json");
 
-    String request = buildJsonRequest();
+    String request = buildMeasurementsRequestBody();
+
+    if (VERBOSE) {
+      Serial.println("\nSending POST request: " + request);
+    }
+
+    int resp = http.sendRequest("POST", request);
+    http.end();
+    if (resp >= 200 && resp < 300) {
+      if (VERBOSE) {
+        Serial.print("Request sent with status: ");
+        Serial.println(resp);
+      }
+      return true;
+    }
+  }
+  if (VERBOSE) {
+    Serial.println("Request not sent!");
+  }
+  return false;
+}
+
+bool sendBoardInit() {
+  if (http.begin(serverAddress.toString(), serverPort, measurementsPostUri)) {
+    http.addHeader("Content-Type", "application/json");
+
+    String request = ;
 
     if (VERBOSE) {
       Serial.println("\nSending POST request: " + request);
