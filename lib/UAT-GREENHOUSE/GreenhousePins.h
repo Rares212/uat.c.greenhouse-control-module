@@ -9,7 +9,7 @@
     #define LIQUID_SENSOR_PIN 17
 
     #define ULTRASONIC_TRIG_PIN 18
-    #define ULTRASONIC_ECHO_PIN
+    #define ULTRASONIC_ECHO_PIN 23
 
     #define SHT_DATA_PIN 16
     #define SHT_SCK_PIN 4
