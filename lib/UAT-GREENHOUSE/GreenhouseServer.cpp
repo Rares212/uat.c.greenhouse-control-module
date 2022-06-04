@@ -29,18 +29,23 @@ bool GreenhouseServer::sendRequestWithBody(String uri, String body) {
 
         _http.addHeader("Content-Type", "application/json");
 
-        if (VERBOSE) {
+        #if VERBOSE
             Serial.println("\nSending POST request: " + body);
-        }
+            Serial.print("URI: ");
+            Serial.println(uri);
+            Serial.print("Address: ");
+            Serial.println(_serverAddress.toString());
+        #endif
 
         int resp = _http.sendRequest("POST", body);
         _http.end();
 
-        if (resp >= 200 && resp < 300) {
-            if (VERBOSE) {
+        if (VERBOSE) {
                 Serial.print("Request sent with status: ");
                 Serial.println(resp);
-            }
+        }
+
+        if (resp >= 200 && resp < 300) {
             return true;
         }
     }
@@ -59,18 +64,23 @@ bool GreenhouseServer::sendRequestWithPathVariable(String uri, String pathVariab
 
         _http.addHeader("Content-Type", "application/json");
 
-        if (VERBOSE) {
+        #if VERBOSE
             Serial.println("\nSending POST request: " + pathVariable);
-        }
+            Serial.print("URI: ");
+            Serial.println(uri);
+            Serial.print("Address: ");
+            Serial.println(_serverAddress.toString());
+        #endif
 
         int resp = _http.sendRequest("POST", "");
         _http.end();
 
-        if (resp >= 200 && resp < 300) {
-            if (VERBOSE) {
+        if (VERBOSE) {
                 Serial.print("Request sent with status: ");
                 Serial.println(resp);
-            }
+        }
+
+        if (resp >= 200 && resp < 300) {
             return true;
         }
     }

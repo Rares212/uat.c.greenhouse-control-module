@@ -28,8 +28,9 @@ float reservoirHeight = 70.0f;
 
 int maxEchoDistance = 150;
 
+float minWaterLevel = -5.0f;
 float maxWaterLevel = 65.0f;
-float minWaterLevel = 5.0f;
+
 
 // Smoothed values for sensor data
 #if !BASIC_MODE
@@ -44,9 +45,9 @@ float minWaterLevel = 5.0f;
   float ecVoltage;
   Smoothed<float> ecValue;
 
-  Smoothed<float> waterTemp;
 #endif
 
+Smoothed<float> waterTemp;
 Smoothed<float> liquidLevel;
 
 int waterSensorStatus;
@@ -83,9 +84,9 @@ NewPing liquidLevelEcho(ULTRASONIC_TRIG_PIN, ULTRASONIC_ECHO_PIN, maxEchoDistanc
 // Timing
 
 // Time between data transmission (32s)
-unsigned long transmissionTimeMs = 1000UL * 32UL;
+unsigned long transmissionTimeMs = 1000UL * 10UL;
 // How many measurements are made between transmissions
-int nMeasurementsBetweenTransmissions = 22;
+int nMeasurementsBetweenTransmissions = 7;
 // Current measurement index
 int measurementCounter = 0;
 // Time between measurements
@@ -147,7 +148,7 @@ void readWaterLevelCm() {
   }
 }
 
-#if SHT_ANALOG
+#if SHT_ANALOG && !BASIC_MODE
   float readAmbientTempAnalog() {
     return -66.875f + 72.917f * ads.computeVolts(ads.readADC_SingleEnded(AMBIENT_TEMP_ANALOG_PIN));
   }
@@ -206,12 +207,12 @@ void readSensorData(bool readPh, bool readEc) {
   waterTemp.add(tempSensor.getTempCByIndex(0));
   yield();
 
+  waterSensorStatus = digitalRead(LIQUID_SENSOR_PIN);
+
   #if !BASIC_MODE
 
     lightLux.add(lightSensor.getLux());
-
-    waterSensorStatus = digitalRead(LIQUID_SENSOR_PIN);
-
+    
     #if SHT_ANALOG
       ambientTemp.add(readAmbientTempAnalog());
       ambientHumidity.add(readAmbientHumidityAnalog());
@@ -220,34 +221,34 @@ void readSensorData(bool readPh, bool readEc) {
       ambientHumidity.add(sht.readHumidity());
     #endif
 
+
+    yield();
+
+    if (readEc && readPh) {
+      // Read both EC and PH
+      digitalWrite(EC_PIN, HIGH);
+      digitalWrite(PH_PIN, HIGH);
+      delay(1);
+      ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(EC_PIN)) * 1000.0f;
+      ecValue.add(milivotsToPpm(ecVoltage, waterTemp.getLast()));
+      phVoltage = ads.computeVolts(ads.readADC_SingleEnded(PH_PIN)) * 1000.0f;
+      phValue.add(milivoltsToPh(phVoltage, waterTemp.getLast()));
+    } else if (readEc) {
+      // Read EC only
+      digitalWrite(EC_POWER_PIN, HIGH);
+      digitalWrite(PH_POWER_PIN, LOW);
+      delay(1);
+      ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(EC_PIN)) * 1000.0f;
+      ecValue.add(milivotsToPpm(ecVoltage, waterTemp.getLast()));
+    } else if (readPh) {
+      // Read PH only
+      digitalWrite(EC_POWER_PIN, LOW);
+      digitalWrite(PH_POWER_PIN, HIGH);
+      delay(1);
+      phVoltage = ads.computeVolts(ads.readADC_SingleEnded(PH_PIN)) * 1000.0f;
+      phValue.add(milivoltsToPh(phVoltage, waterTemp.getLast()));
+    }
   #endif
-
-  yield();
-
-  if (readEc && readPh) {
-    // Read both EC and PH
-    digitalWrite(EC_PIN, HIGH);
-    digitalWrite(PH_PIN, HIGH);
-    delay(1);
-    ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(EC_PIN)) * 1000.0f;
-    ecValue.add(milivotsToPpm(ecVoltage, waterTemp.getLast()));
-    phVoltage = ads.computeVolts(ads.readADC_SingleEnded(PH_PIN)) * 1000.0f;
-    phValue.add(milivoltsToPh(phVoltage, waterTemp.getLast()));
-  } else if (readEc) {
-    // Read EC only
-    digitalWrite(EC_POWER_PIN, HIGH);
-    digitalWrite(PH_POWER_PIN, LOW);
-    delay(1);
-    ecVoltage = ads.computeVolts(ads.readADC_SingleEnded(EC_PIN)) * 1000.0f;
-    ecValue.add(milivotsToPpm(ecVoltage, waterTemp.getLast()));
-  } else if (readPh) {
-    // Read PH only
-    digitalWrite(EC_POWER_PIN, LOW);
-    digitalWrite(PH_POWER_PIN, HIGH);
-    delay(1);
-    phVoltage = ads.computeVolts(ads.readADC_SingleEnded(PH_PIN)) * 1000.0f;
-    phValue.add(milivoltsToPh(phVoltage, waterTemp.getLast()));
-  }
 }
 
 void printSensorData() {
@@ -265,10 +266,10 @@ void printSensorData() {
     Serial.println(ecVoltage);
     Serial.print("Ph voltage(mV): ");
     Serial.println(phVoltage);
+    Serial.print("\nLight(lux): ");
+    Serial.println(lightLux.get());
   #endif
 
-  Serial.print("\nLight(lux): ");
-  Serial.println(lightLux.get());
   Serial.print("Water Temp(C): ");
   Serial.println(waterTemp.get());
   Serial.print("Liquid level(bool): ");
@@ -293,16 +294,18 @@ bool sendMeasurements() {
       Measurement(lightLux.get(), LIGHT, 0)
     };
   #else
+    Serial.println("Sending measurements");
     int nMeasurements = 4;
     Measurement measurements[] = {
       Measurement(valveStatus ? 1.0f : 0.0f, MAIN_WATER_VALVE, 0),
       Measurement(liquidLevel.get(), WATER_LEVEL, 0),
       Measurement(waterSensorStatus, INTERNAL_WATER_FLOW, 0),
       Measurement(waterTemp.get(), WATER_TEMP, 0),
-    }
+    };
   #endif
 
   greenhouseServer.sendMeasurementsRequest(measurements, nMeasurements);
+  Serial.println("Measurements sent");
 }
 
 void checkPumpingSequenceStart() {
@@ -363,20 +366,22 @@ void setup() {
     Serial.println("Entering calibration mode. Will not connect to WiFi or pump water.");
   }
 
-  ecValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions / 3);
-  phValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions / 3);
-  waterTemp.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
-  ambientTemp.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
-  ambientHumidity.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
-  lightLux.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
-  liquidLevel.begin(SMOOTHED_EXPONENTIAL, 80);
+  #if !BASIC_MODE
+    ecValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions / 3);
+    phValue.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions / 3);
+    waterTemp.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
+    ambientTemp.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
+    ambientHumidity.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
+    lightLux.begin(SMOOTHED_AVERAGE, nMeasurementsBetweenTransmissions);
+    liquidLevel.begin(SMOOTHED_EXPONENTIAL, 80);
+
+    lightSensor.setAutomaticMode();
+
+    ads.setGain(GAIN_ONE);
+    ads.begin(0x48);
+  #endif
 
   tempSensor.begin();
-
-  lightSensor.setAutomaticMode();
-
-  ads.setGain(GAIN_ONE);
-  ads.begin(0x48);
 
   pinMode(LIQUID_SENSOR_PIN, INPUT);
   pinMode(EC_POWER_PIN, OUTPUT);
@@ -391,18 +396,21 @@ void setup() {
   digitalWrite(EC_POWER_PIN, HIGH);
   digitalWrite(PH_POWER_PIN, HIGH);
 
-  if (greenhouseServer.sendBoardInitRequest()) {
-    #if VERBOSE
-      Serial.println("Board init request has been succesfuly sent.");
-    #endif
-  } else {
-    #if VERBOSE
-      Serial.println("Error sending board init request! Check the central server hostname.\nRestarting...");
-    #endif
-    ESP.restart();
-  }
+  #if !CAL_MODE
+    if (greenhouseServer.sendBoardInitRequest()) {
+      #if VERBOSE
+        Serial.println("Board init request has been succesfuly sent.");
+      #endif
+    } else {
+      #if VERBOSE
+        Serial.println("Error sending board init request! Check the central server hostname.\nRestarting...");
+      #endif
+      ESP.restart();
+    }
+  #endif
 
   readSensorData(false, false);
+  sendMeasurements();
 }
 
 void loop() {

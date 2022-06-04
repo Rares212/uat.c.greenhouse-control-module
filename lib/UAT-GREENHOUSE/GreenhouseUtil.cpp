@@ -22,5 +22,7 @@ String buildRequestForMeasurements(Measurement measurements[], int nMeasurements
             }
         }
         request += "]";
+        return request;
     }
+    return "";
 }
