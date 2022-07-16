@@ -8,8 +8,8 @@
 #define BASIC_MODE false
 
 // WiFi
-// #define CENTRAL_SERVER_HOSTNAME "uat-rpi-central"
-#define CENTRAL_SERVER_HOSTNAME "DESKTOP-A3VFPEF"
+#define CENTRAL_SERVER_HOSTNAME "uat-rpi-central"
+//#define CENTRAL_SERVER_HOSTNAME "DESKTOP-A3VFPEF"
 #define CENTRAL_SERVER_PORT 8080
 
 #define MEASUREMENT_POST_URI "/api/measurements/measurement"

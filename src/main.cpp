@@ -23,12 +23,12 @@
 #include "GreenhouseServer.h"
 
 // Liquid level parameters
-float liquidLevelDistanceFromTop = 20.0f;
+float liquidLevelDistanceFromTop = 14.0f;
 float reservoirHeight = 70.0f;
 
 int maxEchoDistance = 150;
 
-float minWaterLevel = -5.0f;
+float minWaterLevel = 5.0f;
 float maxWaterLevel = 65.0f;
 
 
@@ -452,7 +452,7 @@ void loop() {
     if (pumpNutrients) {
 
       boolean hasStarted = false;
-      unsigned long pumpTimeMs = 0UL;
+      unsigned long pumpTimeMs = nutrientPumpOnTimeMs[0];
       for (int i = 0; i < nPumps; i++) {
         if (pumpStatus[i]) {
           hasStarted = true;
@@ -465,6 +465,15 @@ void loop() {
           digitalWrite(pumpPins[0], HIGH);
           pumpStatus[0] = true;
           lastPumpSwitchTime = millis();
+          #if VERBOSE
+            for (int i = 0; i < nPumps; i++) {
+              Serial.print("Pump ");
+              Serial.print(i);
+              Serial.print(": ");
+              Serial.print(pumpStatus[i]);
+              Serial.print("\n");
+            }
+          #endif
       }
 
       if (millis() - lastPumpSwitchTime > pumpTimeMs) {
@@ -485,23 +494,16 @@ void loop() {
 
         for (int i = 0; i < nPumps; i++) {
           if (pumpStatus[i]) {
-            if (i == 0) {
-              // If pump 0 has finished, turn it off
-              // and turn on pump 1
-              digitalWrite(pumpPins[i], LOW);
-              pumpStatus[i] = false;
-
-              delay(1);
-
-              digitalWrite(pumpPins[i+1], HIGH);
-              pumpStatus[i+1] = true;
-              lastPumpSwitchTime = millis();
-            } else if (i == nPumps-1) {
+            Serial.print("\nChecking pump: ");
+            Serial.print(i);
+            if (i == nPumps-1) {
               // If the last pump has finished, turn it off
               // and end the pumping sequence
               digitalWrite(pumpPins[i], LOW);
               pumpStatus[i] = false;
               pumpNutrients = false;
+              
+              lastPumpSwitchTime = millis();
             } else {
               // Otherwise alternate the pumps
               digitalWrite(pumpPins[i], LOW);
@@ -513,6 +515,7 @@ void loop() {
               pumpStatus[i+1] = true;
               lastPumpSwitchTime = millis();
             }
+            break;
           }
         }
       }

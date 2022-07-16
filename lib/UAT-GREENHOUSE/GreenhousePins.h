@@ -1,10 +1,10 @@
 #pragma once
 
-    #define PH_PIN 0
-    #define EC_PIN 1
+    #define PH_PIN 3
+    #define EC_PIN 2
 
-    #define AMBIENT_TEMP_ANALOG_PIN 2
-    #define AMBIENT_HUMIDITY_ANALOG_PIN 3
+    #define AMBIENT_TEMP_ANALOG_PIN 0
+    #define AMBIENT_HUMIDITY_ANALOG_PIN 1
 
     #define LIQUID_SENSOR_PIN 17
 
@@ -19,8 +19,8 @@
 
     #define WATER_TEMP_PIN D2
 
-    #define EC_POWER_PIN D3
-    #define PH_POWER_PIN D4
+    #define EC_POWER_PIN D4
+    #define PH_POWER_PIN D3
 
     #define VALVE_SWITCH_PIN A4
 
