@@ -1,8 +1,15 @@
 #include <Arduino.h>
 #include "Measurement.h"
 #include "GreenhouseUtil.h"
+#include <ArduinoJson.h>
 
 String Measurement::getJson() {
+    DynamicJsonDocument doc(512);
     String sensorId = getSensorId(sensorType, sensorIndex);
-    return "{\"value\":" + String(value) +",\"sensor\":{\"id\":\"" + sensorId + "\"}}";
+    doc["value"]=this->value;
+    doc["sensor"]["id"]=sensorId;
+
+    String serializedJson = "";
+    serializeJsonPretty(doc, serializedJson);
+    return serializedJson;
 }

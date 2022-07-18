@@ -1,12 +1,11 @@
 #include "GreenhouseServer.h"
 
-#include <Arduino.h>
 #include "SensorType.h"
 #include "Measurement.h"
 #include "GreenhouseConfig.h"
 #include "GreenhouseUtil.h"
-#include <HTTPClient.h>
 #include <ESPmDNS.h>
+#include <ArduinoJson.h>
 
 GreenhouseServer::GreenhouseServer(String serverHostname, int serverPort) {
     _serverHostname = serverHostname;
@@ -14,7 +13,12 @@ GreenhouseServer::GreenhouseServer(String serverHostname, int serverPort) {
 }
 
 bool GreenhouseServer::init() {
-    mdns_init();
+    //mdns_init();
+    MDNS.begin(getHostname().c_str());
+    Serial.print("\nHostname and IP: ");
+    Serial.print(getHostname());
+    Serial.print(" ");
+    Serial.println(WiFi.localIP());
     _serverAddress = MDNS.queryHost(_serverHostname);
     if (_serverAddress.toString().equals("0.0.0.0")) {
         return false;
@@ -22,6 +26,11 @@ bool GreenhouseServer::init() {
     return true;
 }
 
+String GreenhouseServer::getHostname() {
+    String boardIdLowercase = getBoardId();
+    boardIdLowercase.toLowerCase();
+    return DEVICE_HOSTNAME_PREFIX + boardIdLowercase;
+}
 
 bool GreenhouseServer::sendRequestWithBody(String uri, String body) {
 
@@ -92,10 +101,13 @@ bool GreenhouseServer::sendRequestWithPathVariable(String uri, String pathVariab
 }
 
 bool GreenhouseServer::sendBoardInitRequest() {
+    DynamicJsonDocument doc(512);
     String boardId = getBoardId();
-    String requestBody = "{\"id\":\"" + boardId + "\"," +
-                         "\"name\":\"" + DEVICE_NAME + "\"," +
-                         "\"type\":\"" + BOARD_TYPE + "\"}";
+    doc["id"] = boardId;
+    doc["name"] = DEVICE_NAME;
+    doc["type"] = BOARD_TYPE;
+    String requestBody = "";
+    serializeJsonPretty(doc, requestBody);
     return sendRequestWithBody(INIT_BOARD_URI, requestBody);
 
 }
@@ -114,3 +126,10 @@ bool GreenhouseServer::sendMeasurementsRequest(Measurement measurements[], int n
     String requestBody = buildRequestForMeasurements(measurements, nMeasurements);
     return sendRequestWithBody(MEASUREMENTS_POST_URI, requestBody);
 }
+
+void GreenhouseServer::loop() {
+    if (millis() > _lastPingTime + PING_INTERVAL_MS) {
+        this->sendBoardPingRequest();
+        this->_lastPingTime = millis();
+    }
+} 

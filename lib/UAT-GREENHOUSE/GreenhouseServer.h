@@ -14,9 +14,14 @@ class GreenhouseServer {
         HTTPClient _http;
         IPAddress _serverAddress;
 
+        unsigned long _lastPingTime = 0UL;
+
+        String getHostname();
     public:
 
         GreenhouseServer(String serverHostname, int serverPort);
+
+        void loop();
 
         bool init();
 

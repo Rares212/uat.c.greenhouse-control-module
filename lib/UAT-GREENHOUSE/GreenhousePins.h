@@ -19,14 +19,14 @@
 
     #define WATER_TEMP_PIN D2
 
-    #define EC_POWER_PIN D3
-    #define PH_POWER_PIN D4
+    #define EC_POWER_PIN D8
+    #define PH_POWER_PIN D9
 
-    #define VALVE_SWITCH_PIN A4
+    #define VALVE_SWITCH_PIN D7
 
-    #define PUMP_PIN_0 D7
-    #define PUMP_PIN_1 D8
-    #define PUMP_PIN_2 D9
+    #define PUMP_PIN_0 D4
+    #define PUMP_PIN_1 MISO
+    #define PUMP_PIN_2 D3
 
 #ifdef BOARD1
     #define PH_PIN 0
