@@ -2,7 +2,6 @@
 #include <Smoothed.h>
 #include <NewPing.h>
 #include "Max44009.h"
-#include <SHT1x.h>
 #include <Adafruit_ADS1X15.h>
 #include "DallasTemperature.h"
 

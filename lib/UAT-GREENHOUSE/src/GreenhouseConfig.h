@@ -2,7 +2,7 @@
 
 // General
 #define CAL_MODE false
-#define VERBOSE true
+#define VERBOSE false
 #define SHT_ANALOG true
 #define ULTRASONIC_CONTROL true
 #define BASIC_MODE false
@@ -34,15 +34,20 @@
 #define MIN_WATER_LEVEL 45.0f
 #define MAX_WATER_LEVEL 65.0f
 
-// WiFi
-#define CENTRAL_SERVER_HOSTNAME "uat-rpi-central"
-//#define CENTRAL_SERVER_HOSTNAME "DESKTOP-A3VFPEF"
+// WiFi and Server
+//#define CENTRAL_SERVER_HOSTNAME "uat-rpi-central"
+#define CENTRAL_SERVER_HOSTNAME "DESKTOP-A3VFPEF"
 #define CENTRAL_SERVER_PORT 8080
 
 #define MEASUREMENT_POST_URI "/api/measurements/measurement"
 #define MEASUREMENTS_POST_URI "/api/measurements"
 #define INIT_BOARD_URI "/api/boards/init"
 #define PING_BOARD_URI "/api/boards/ping"
+
+#define BASIC_AUTH_USERNAME "device"
+#define BASIC_AUTH_PASSWORD "D8gqNt8emBv7pTbN"
+
+#define HTTP_TIMEOUT 1000UL * 10UL
 
 #define DEVICE_NAME "Rack-Module 1"
 #define DEVICE_HOSTNAME_PREFIX "uat-rack-module-"

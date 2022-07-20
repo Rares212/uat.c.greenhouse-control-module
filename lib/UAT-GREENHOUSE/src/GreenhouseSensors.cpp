@@ -66,7 +66,8 @@ float GreenhouseSensors::milivoltsToAmbientTemp(float milivolts) {
 }
 
 float GreenhouseSensors::milivoltsToRelativeHumidity(float milivolts) {
-    return -12.5f + 41.667f * milivolts / 1000.0f;
+    float res = -12.5f + 41.667f * milivolts / 1000.0f;
+    return constrain(res, 0.0f, 100.0f);
 }
 
 void GreenhouseSensors::readLiquidLevel() {
@@ -74,6 +75,9 @@ void GreenhouseSensors::readLiquidLevel() {
     if (echo != 0) {
         float echoDistance = this->liquidLevelSensor.convert_cm(echo);
         echoDistance = ULTRASONIC_DISTANCE_FROM_TOP + RESERVOIR_HEIGHT - echoDistance;
+        if (echoDistance <= 0.0f) {
+            echoDistance = 0.0f;
+        }
         liquidLevel.add(echoDistance);
     }
 }

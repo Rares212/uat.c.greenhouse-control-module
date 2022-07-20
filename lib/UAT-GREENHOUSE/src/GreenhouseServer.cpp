@@ -6,6 +6,7 @@
 #include "GreenhouseUtil.h"
 #include <ESPmDNS.h>
 #include <ArduinoJson.h>
+#include <WebSerial.h>
 
 GreenhouseServer::GreenhouseServer(String serverHostname, int serverPort) {
     _serverHostname = serverHostname;
@@ -21,9 +22,20 @@ bool GreenhouseServer::init() {
     Serial.println(WiFi.localIP());
     _serverAddress = MDNS.queryHost(_serverHostname);
     if (_serverAddress.toString().equals("0.0.0.0")) {
+        WebSerial.print("\nCould not find central server at ");
+        WebSerial.println(_serverHostname);
+        Serial.print("\nCould not find central server at ");
+        Serial.println(_serverHostname);
         return false;
     }
-    return true;
+    if (sendBoardInitRequest()) {
+        Serial.println("Board init request has been succesfuly sent.");
+        return true;
+    } else {
+        Serial.println("Error sending board init request! Check the central server hostname.");
+    }
+
+    return false;
 }
 
 String GreenhouseServer::getHostname() {
@@ -33,10 +45,13 @@ String GreenhouseServer::getHostname() {
 }
 
 bool GreenhouseServer::sendRequestWithBody(String uri, String body) {
+    _serverAddress = MDNS.queryHost(_serverHostname);
 
     if (_http.begin(_serverAddress.toString(), _serverPort, uri)) {
 
         _http.addHeader("Content-Type", "application/json");
+        _http.setAuthorization(BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD);
+        _http.setTimeout(HTTP_TIMEOUT);
 
         #if VERBOSE
             Serial.println("\nSending POST request: " + body);
@@ -66,12 +81,14 @@ bool GreenhouseServer::sendRequestWithBody(String uri, String body) {
 }
 
 bool GreenhouseServer::sendRequestWithPathVariable(String uri, String pathVariable) {
-
+    _serverAddress = MDNS.queryHost(_serverHostname);
     String fullUri = uri + "/" + pathVariable;
 
     if (_http.begin(_serverAddress.toString(), _serverPort, fullUri)) {
 
         _http.addHeader("Content-Type", "application/json");
+        _http.setAuthorization(BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD);
+        _http.setTimeout(HTTP_TIMEOUT);
 
         #if VERBOSE
             Serial.println("\nSending POST request: " + pathVariable);

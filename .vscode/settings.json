@@ -5,6 +5,10 @@
         "functional": "cpp",
         "istream": "cpp",
         "tuple": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "algorithm": "cpp",
+        "fstream": "cpp",
+        "ostream": "cpp",
+        "sstream": "cpp"
     }
 }
