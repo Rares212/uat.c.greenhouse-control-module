@@ -20,18 +20,21 @@ float minWaterLevel = 45.0f;
 float maxWaterLevel = 65.0f;
 
 void readSensors() {
+  Serial.println("Reading sensors");
   // Alternatively read PH and EC sensors
   greenhouseSensors.readWaterTemp();
   greenhouseSensors.readLiquidLevel();
   greenhouseSensors.readWaterFlow();
   greenhouseSensors.readLight();
   greenhouseSensors.readSht();
-  
-  if (measurementCount < MEASUREMENT_COUNT_BEFORE_TRANSMISSION / 2) {
-    greenhouseSensors.readPh();
-  } else {
-    greenhouseSensors.readEc();
-  }
+
+  #if USE_ADC
+    if (measurementCount < MEASUREMENT_COUNT_BEFORE_TRANSMISSION / 2) {
+      greenhouseSensors.readPh();
+    } else {
+      greenhouseSensors.readEc();
+    }
+  #endif
 
   measurementCount++;
   lastMeasurementTime = millis();

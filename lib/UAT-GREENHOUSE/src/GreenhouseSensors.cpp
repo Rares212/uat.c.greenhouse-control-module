@@ -109,11 +109,19 @@ void GreenhouseSensors::readLight() {
 }
 
 void GreenhouseSensors::readSht() {
-    float ambientTempMilivolts = this->adc.computeVolts(this->adc.readADC_SingleEnded(AMBIENT_TEMP_ANALOG_PIN)) * 1000.0f;
-    float relativeHumidityMilivolts = this->adc.computeVolts(this->adc.readADC_SingleEnded(AMBIENT_HUMIDITY_ANALOG_PIN)) * 1000.0f;
+    #if USE_ADC
+        float ambientTempMilivolts = this->adc.computeVolts(this->adc.readADC_SingleEnded(AMBIENT_TEMP_ANALOG_PIN)) * 1000.0f;
+        float relativeHumidityMilivolts = this->adc.computeVolts(this->adc.readADC_SingleEnded(AMBIENT_HUMIDITY_ANALOG_PIN)) * 1000.0f;
 
-    this->ambientTemp.add(this->milivoltsToAmbientTemp(ambientTempMilivolts));
-    this->ambientHumidity.add(this->milivoltsToRelativeHumidity(relativeHumidityMilivolts));
+        this->ambientTemp.add(this->milivoltsToAmbientTemp(ambientTempMilivolts));
+        this->ambientHumidity.add(this->milivoltsToRelativeHumidity(relativeHumidityMilivolts));
+    #else
+        float ambientTempMilivolts = analogReadMilliVolts(AMBIENT_TEMP_ANALOG_PIN);
+        float relativeHumidityMilivolts = analogReadMilliVolts(AMBIENT_HUMIDITY_ANALOG_PIN);
+
+        this->ambientTemp.add(this->milivoltsToAmbientTemp(ambientTempMilivolts));
+        this->ambientHumidity.add(this->milivoltsToRelativeHumidity(relativeHumidityMilivolts));
+    #endif
 }
 
 void GreenhouseSensors::readWaterFlow() {
@@ -126,25 +134,27 @@ void GreenhouseSensors::readWaterTemp() {
 }
 
 boolean GreenhouseSensors::transmitData() {
-    #if !BASIC_MODE
+    Serial.println("Sending measurements");
+    #if USE_ADC
         int nMeasurements = 8;
         Measurement measurements[] = {
-        Measurement(liquidLevel.get(), WATER_LEVEL, 0),
-        Measurement(waterFlow ? 1.0f : 0.0f, INTERNAL_WATER_FLOW, 0),
-        Measurement(waterTemp.get(), WATER_TEMP, 0),
-        Measurement(ambientTemp.get(), AMBIENT_TEMP, 0),
-        Measurement(ambientHumidity.get(), HUMIDITY, 0),
-        Measurement(phValue.get(), PH, 0),
-        Measurement(ecValue.get(), EC, 0),
-        Measurement(lightLux.get(), LIGHT, 0)
+            Measurement(liquidLevel.get(), WATER_LEVEL, 0),
+            Measurement(waterFlow ? 1.0f : 0.0f, INTERNAL_WATER_FLOW, 0),
+            Measurement(waterTemp.get(), WATER_TEMP, 0),
+            Measurement(ambientTemp.get(), AMBIENT_TEMP, 0),
+            Measurement(ambientHumidity.get(), HUMIDITY, 0),
+            Measurement(phValue.get(), PH, 0),
+            Measurement(ecValue.get(), EC, 0),
+            Measurement(lightLux.get(), LIGHT, 0)
         };
     #else
-        Serial.println("Sending measurements");
-        int nMeasurements = 3;
+        int nMeasurements = 5;
         Measurement measurements[] = {
-        Measurement(liquidLevel.get(), WATER_LEVEL, 0),
-        Measurement(waterFlow, INTERNAL_WATER_FLOW, 0),
-        Measurement(waterTemp.get(), WATER_TEMP, 0),
+            Measurement(liquidLevel.get(), WATER_LEVEL, 0),
+            Measurement(waterFlow, INTERNAL_WATER_FLOW, 0),
+            Measurement(waterTemp.get(), WATER_TEMP, 0),
+            Measurement(ambientTemp.get(), AMBIENT_TEMP, 0),
+            Measurement(ambientHumidity.get(), HUMIDITY, 0),
         };
     #endif
 
