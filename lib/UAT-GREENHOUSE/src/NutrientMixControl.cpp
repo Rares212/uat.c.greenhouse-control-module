@@ -157,7 +157,10 @@ void NutrientMixControl::preventOverflow() {
 
 void NutrientMixControl::checkForLowWaterLevel() {
     float waterLevel = _greenhouseSensors.liquidLevel.get();
-    if (waterLevel <= _waterLevelLow && !_pumpingNutrients && !_pumpingWater) {
+    if (waterLevel <= _waterLevelLow && 
+        waterLevel != 0.0f &&
+        !_pumpingNutrients && 
+        !_pumpingWater) {
         fillTankAndPumpNutrients(_waterLevelHigh);
     }
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#define BOARD_1
+#define BOARD_3
 
 #ifdef BOARD_1
     #define DEVICE_NAME "Rack-Module 1"
