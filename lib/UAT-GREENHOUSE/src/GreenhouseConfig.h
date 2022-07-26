@@ -1,6 +1,6 @@
 #pragma once
 
-#define BOARD_3
+#define BOARD_1
 
 #ifdef BOARD_1
     #define DEVICE_NAME "Rack-Module 1"
@@ -51,14 +51,12 @@
 #define VERBOSE false
 
 // Sensors
-#define MEASUREMENT_COUNT_BEFORE_TRANSMISSION 10
+#define MEASUREMENT_COUNT_BEFORE_TRANSMISSION 40
 
-
-
-#define TRANSMISSION_TIME_MINUTES 0.5f
+#define TRANSMISSION_TIME_MINUTES 15.0f
 
 // Ultrasonic sensor config
-#define ULTRASONIC_DISTANCE_FROM_TOP 20.0f
+#define ULTRASONIC_DISTANCE_FROM_TOP 13.0f
 #define RESERVOIR_HEIGHT 70.0f
 #define MAX_ECHO_DISTANCE 150
 
@@ -83,6 +81,6 @@
 
 #define DEVICE_HOSTNAME_PREFIX "uat-rack-module-"
 
-#define HTTP_TIMEOUT 1000UL * 10UL
+#define HTTP_TIMEOUT 1000UL * 12UL
 
 #define PING_INTERVAL_MS 1000UL * 60UL

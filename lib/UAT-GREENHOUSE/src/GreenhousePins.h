@@ -3,8 +3,8 @@
 #include "GreenhouseConfig.h"
 
 #ifdef BOARD_1
-    #define PH_PIN 0
-    #define EC_PIN 1
+    #define PH_PIN 1
+    #define EC_PIN 0
 
     #define AMBIENT_TEMP_ANALOG_PIN 2
     #define AMBIENT_HUMIDITY_ANALOG_PIN 3
@@ -22,9 +22,9 @@
 
     #define WATER_TEMP_PIN D2
 
-    #define EC_POWER_PIN D9
     #define PH_POWER_PIN D8
-
+    #define EC_POWER_PIN D9
+    
     #define VALVE_SWITCH_PIN D7
 
     #define PUMP_PIN_0 D4

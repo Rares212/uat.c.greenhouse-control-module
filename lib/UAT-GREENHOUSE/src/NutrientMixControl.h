@@ -25,7 +25,7 @@ class NutrientMixControl {
         int _pumpPins[3];
         unsigned long _nutrientPumpOnTimeMs[3];
 
-        boolean _automateProcess = true;
+        boolean _automateProcess = false;
         float _waterLevelLow = 45.0f;
         float _waterLevelHigh = 65.0f;
 

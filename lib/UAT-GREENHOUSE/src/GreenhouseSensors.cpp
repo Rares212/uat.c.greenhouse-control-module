@@ -15,8 +15,11 @@ void GreenhouseSensors::init() {
     pinMode(EC_POWER_PIN, OUTPUT);
     pinMode(PH_POWER_PIN, OUTPUT);
 
-    digitalWrite(EC_POWER_PIN, HIGH);
-    digitalWrite(PH_POWER_PIN, HIGH);
+    digitalWrite(EC_POWER_PIN, LOW);
+    digitalWrite(PH_POWER_PIN, LOW);
+
+    phSensor.begin();
+    ecSensor.begin();
 
     #if USE_ADC
         this->adc.setGain(GAIN_ONE);
@@ -42,21 +45,24 @@ void GreenhouseSensors::init() {
 }
 
 float GreenhouseSensors::milivoltsToPh(float milivolts, float temp) {
-    float ph = -milivolts * 0.006098f + 16.23f;
-    // Temperature correction
-    ph = ph + ((temp - 25.0f) * 0.0188f);
-    return ph;
+    // float ph = -milivolts * 0.006098f + 16.23f;
+    // // Temperature correction
+    // ph = ph + ((temp - 25.0f) * 0.0188f);
+    // return ph;
+    return phSensor.readPH(milivolts, temp);
 }
 
 float GreenhouseSensors::milivotsToPpm(float milivolts, float temp) {
-    float ec = milivolts * 0.060975f;
+    // float ec = milivolts * 0.060975f;
 
-    // Temp correction
-    ec = ec / (1.0f + 0.0185 * (temp - 25.0f));
+    // // Temp correction
+    // ec = ec / (1.0f + 0.0185 * (temp - 25.0f));
 
-    if (ec < 0) {
-      ec = 0;
-    }
+    // if (ec < 0) {
+    //   ec = 0;
+    // }
+
+    float ec = ecSensor.readEC(milivolts, temp);
     // Convert to ppm500
     return ec * 500.0f;
 }
@@ -88,9 +94,8 @@ void GreenhouseSensors::readPh() {
     #endif
     digitalWrite(EC_POWER_PIN, LOW);
     digitalWrite(PH_POWER_PIN, HIGH);
-    delay(1);
-    float phVoltage = this->adc.computeVolts(this->adc.readADC_SingleEnded(PH_PIN)) * 1000.0f;
-    this->phValue.add(milivoltsToPh(phVoltage, this->waterTemp.getLast()));
+    _phMilivolts = this->adc.computeVolts(this->adc.readADC_SingleEnded(PH_PIN)) * 1000.0f;
+    this->phValue.add(milivoltsToPh(_phMilivolts, this->waterTemp.getLast()));
 }
 
 void GreenhouseSensors::readEc() {
@@ -99,9 +104,8 @@ void GreenhouseSensors::readEc() {
     #endif
     digitalWrite(EC_POWER_PIN, HIGH);
     digitalWrite(PH_POWER_PIN, LOW);
-    delay(1);
-    float ecVoltage = this->adc.computeVolts(this->adc.readADC_SingleEnded(EC_PIN)) * 1000.0f;
-    this->ecValue.add(milivotsToPpm(ecVoltage, this->waterTemp.getLast()));
+    _ecMilivolts = this->adc.computeVolts(this->adc.readADC_SingleEnded(EC_PIN)) * 1000.0f;
+    this->ecValue.add(milivotsToPpm(_ecMilivolts, this->waterTemp.getLast()));
 }
 
 void GreenhouseSensors::readLight() {
@@ -134,7 +138,7 @@ void GreenhouseSensors::readWaterTemp() {
 }
 
 boolean GreenhouseSensors::transmitData() {
-    Serial.println("Sending measurements");
+    WebSerial.println("Sending measurements");
     #if USE_ADC
         int nMeasurements = 8;
         Measurement measurements[] = {
@@ -162,20 +166,24 @@ boolean GreenhouseSensors::transmitData() {
 }
 
 void GreenhouseSensors::printSensorData() {
-    Serial.print("\nAmbient Temp(C): ");
-    Serial.println(ambientTemp.get());
-    Serial.print("Humidity(%): ");
-    Serial.println(ambientHumidity.get());
-    Serial.print("Ec value(ppm500): ");
-    Serial.println(ecValue.get());
-    Serial.print("Ph value: ");
-    Serial.println(phValue.get());
-    Serial.print("Light(lux): ");
-    Serial.println(lightLux.get());
-    Serial.print("Water Temp(C): ");
-    Serial.println(waterTemp.get());
-    Serial.print("Liquid level(bool): ");
-    Serial.println(waterFlow);
-    Serial.print("Liquid level(cm): ");
-    Serial.println(liquidLevel.get());
+    WebSerial.print("\nAmbient Temp(C): ");
+    WebSerial.println(ambientTemp.get());
+    WebSerial.print("Humidity(%): ");
+    WebSerial.println(ambientHumidity.get());
+    WebSerial.print("Ec value(ppm500): ");
+    WebSerial.println(ecValue.get());
+    WebSerial.print("EC voltage (mv): ");
+    WebSerial.println(_ecMilivolts);
+    WebSerial.print("Ph value: ");
+    WebSerial.println(phValue.get());
+    WebSerial.print("Ph voltage (mv): ");
+    WebSerial.println(_phMilivolts);
+    WebSerial.print("Light(lux): ");
+    WebSerial.println(lightLux.get());
+    WebSerial.print("Water Temp(C): ");
+    WebSerial.println(waterTemp.get());
+    WebSerial.print("Liquid level(bool): ");
+    WebSerial.println(waterFlow);
+    WebSerial.print("Liquid level(cm): ");
+    WebSerial.println(liquidLevel.get());
 }
